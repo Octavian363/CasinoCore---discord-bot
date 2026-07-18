@@ -21,41 +21,41 @@ const client = new Client({
 
 const PREFIX = '$';
 
-// --- STOCARE PERMANENTĂ PENTRU RAILWAY ---
-// Dacă rulăm pe Railway, creăm fișierele în /app/data (un Volume persistat care nu se șterge la restart)
+// --- RAILWAY PERMANENT STORAGE SYSTEM ---
+// If running on Railway, it will automatically use the persistent Volume path (/app/data)
 const DATA_DIR = fs.existsSync('/app/data') ? '/app/data' : __dirname;
 const ECONOMY_FILE = path.join(DATA_DIR, 'economy.json');
 const CLANS_FILE = path.join(DATA_DIR, 'clans.json');
 const MARKET_FILE = path.join(DATA_DIR, 'market.json');
 
-// Set pentru a preveni spam-ul (jocuri active)
+// Prevents user spam during ongoing animations
 const activeGames = new Set();
 
-// Jackpot global (în memorie, pornește de la 50.000)
+// Global rolling jackpot (stores in memory, starts at 50,000)
 let globalJackpot = 50000;
 
-// Evenimente globale active (în memorie)
+// Dynamic automated global events
 let activeEvent = null; 
 
-// --- CONFIGURAȚII ---
+// --- ECONOMIC CONFIGURATIONS ---
 const shopItems = [
-    { id: "vip_bronze", name: "Bronze VIP Pass", price: 5000, multiplier: 1.1, desc: "Multiplicator permanent de 1.1x la Daily/Weekly!" },
-    { id: "vip_silver", name: "Silver VIP Pass", price: 15000, multiplier: 1.3, desc: "Multiplicator permanent de 1.3x la Daily/Weekly!" },
-    { id: "vip_gold", name: "Gold VIP Pass", price: 50000, multiplier: 1.5, desc: "Multiplicator permanent de 1.5x la Daily/Weekly!" },
-    { id: "lucky_charm", name: "Lucky Charm", price: 2000, multiplier: 1.0, desc: "Deblochează realizări speciale și ajută la noroc!" }
+    { id: "vip_bronze", name: "Bronze VIP Pass", price: 5000, multiplier: 1.1, desc: "Permanent 1.1x payout booster for Daily/Weekly claims!" },
+    { id: "vip_silver", name: "Silver VIP Pass", price: 15000, multiplier: 1.3, desc: "Permanent 1.3x payout booster for Daily/Weekly claims!" },
+    { id: "vip_gold", name: "Gold VIP Pass", price: 50000, multiplier: 1.5, desc: "Permanent 1.5x payout booster for Daily/Weekly claims!" },
+    { id: "lucky_charm", name: "Lucky Charm", price: 2000, multiplier: 1.0, desc: "Unlocks unique server badges and luck achievements!" }
 ];
 
 const jobList = [
-    { id: "pilot", name: "Commercial Pilot", reqSkill: "intelligence", reqLevel: 3, payoutMin: 1200, payoutMax: 2500, desc: "Necesită Inteligență Lv. 3. Sigur și bine plătit." },
-    { id: "trader", name: "Stock Trader", reqSkill: "intelligence", reqLevel: 5, payoutMin: 500, payoutMax: 5000, desc: "Necesită Inteligență Lv. 5. Risc mare, profit extrem." },
-    { id: "magician", name: "Grand Magician", reqSkill: "luck", reqLevel: 4, payoutMin: 1000, payoutMax: 2200, desc: "Necesită Noroc Lv. 4. Generează recompense misterioase." },
-    { id: "bodyguard", name: "VIP Bodyguard", reqSkill: "strength", reqLevel: 4, payoutMin: 1100, payoutMax: 2000, desc: "Necesită Forță Lv. 4. Apără țintele pentru bani siguri." }
+    { id: "pilot", name: "Commercial Pilot", reqSkill: "intelligence", reqLevel: 3, payoutMin: 1200, payoutMax: 2500, desc: "Requires Intel Lv. 3. Secure and highly lucrative." },
+    { id: "trader", name: "Stock Trader", reqSkill: "intelligence", reqLevel: 5, payoutMin: 500, payoutMax: 5000, desc: "Requires Intel Lv. 5. Extreme volatility, immense profits." },
+    { id: "magician", name: "Grand Magician", reqSkill: "luck", reqLevel: 4, payoutMin: 1000, payoutMax: 2200, desc: "Requires Luck Lv. 4. Generates mysterious cash rewards." },
+    { id: "bodyguard", name: "VIP Bodyguard", reqSkill: "strength", reqLevel: 4, payoutMin: 1100, payoutMax: 2000, desc: "Requires Strength Lv. 4. Solid protection for static wages." }
 ];
 
 const propertyList = [
-    { id: "apartment", name: "Cozy Apartment", price: 30000, rent: 1200, desc: "Generează 1,200 chips zilnic." },
-    { id: "villa", name: "Luxury Villa", price: 120000, rent: 5500, desc: "Generează 5,500 chips zilnic." },
-    { id: "penthouse", name: "VIP Penthouse", price: 350000, rent: 18000, desc: "Generează 18,000 chips zilnic." }
+    { id: "apartment", name: "Cozy Apartment", price: 30000, rent: 1200, desc: "Generates 1,200 chips passively every single day." },
+    { id: "villa", name: "Luxury Villa", price: 120000, rent: 5500, desc: "Generates 5,500 chips passively every single day." },
+    { id: "penthouse", name: "VIP Penthouse", price: 350000, rent: 18000, desc: "Generates 18,000 chips passively every single day." }
 ];
 
 const lootBoxes = {
@@ -63,7 +63,7 @@ const lootBoxes = {
     legendary: { price: 75000, name: "Legendary Box" }
 };
 
-// --- MANAGEMENT DATE (JSON SAFE) ---
+// --- DATA MANAGEMENT ENGINE ---
 function loadData() {
     if (!fs.existsSync(ECONOMY_FILE)) {
         fs.writeFileSync(ECONOMY_FILE, JSON.stringify({}), 'utf8');
@@ -127,7 +127,7 @@ function addXP(userId, amount, channel) {
         user.xp -= xpNeeded;
         user.level += 1;
         user.skillPoints += 1;
-        channel.send(`🎉 **${client.users.cache.get(userId)?.username || 'Jucătorul'}** a ajuns la **Nivelul ${user.level}** și a primit **1 Punct de Abilitate**!`);
+        channel.send(`🎉 **${client.users.cache.get(userId)?.username || 'Player'}** leveled up to **Level ${user.level}** and earned **1 Skill Point**!`);
     }
     updateUserData(userId, user);
 }
@@ -224,12 +224,12 @@ function evaluatePokerHand(cards) {
     return { rank: 1, name: "High Card", score: 100000 + parsed[0].val };
 }
 
-// Tick-er Evenimente Automate
+// Global Random Event Automation Ticker
 setInterval(() => {
     if (!activeEvent && Math.random() < 0.20) {
         const types = [
-            { name: "Happy Hour (+50% profit la jocuri!)", type: "happy_hour", duration: 15 * 60 * 1000 },
-            { name: "Double XP (2x XP la activități!)", type: "double_xp", duration: 15 * 60 * 1000 }
+            { name: "Happy Hour (+50% returns on casino games!)", type: "happy_hour", duration: 15 * 60 * 1000 },
+            { name: "Double XP (2x XP from all jobs and crimes!)", type: "double_xp", duration: 15 * 60 * 1000 }
         ];
         const chosen = types[Math.floor(Math.random() * types.length)];
         activeEvent = { name: chosen.name, type: chosen.type, endsAt: Date.now() + chosen.duration };
@@ -239,7 +239,7 @@ setInterval(() => {
 }, 5 * 60 * 1000);
 
 client.once('ready', () => {
-    console.log(`\n🎰 CasinoCore Ultimate rulat cu succes ca ${client.user.tag}!`);
+    console.log(`\n🎰 CasinoCore Ultimate successfully deployed as ${client.user.tag}!`);
 });
 
 client.on('messageCreate', async (message) => {
@@ -249,72 +249,72 @@ client.on('messageCreate', async (message) => {
     const command = args.shift().toLowerCase();
     const getEventMultiplier = () => (activeEvent && activeEvent.type === "happy_hour") ? 1.5 : 1.0;
 
-    // --- COMANDĂ HELP ---
+    // --- MAIN HELP UTILITY ---
     if (command === 'help' || command === 'commands') {
         const embed = new EmbedBuilder()
             .setTitle('🎰 CASINOCORE ULTIMATE MANUAL 🎰')
-            .setDescription('Toate sistemele avansate economice sunt active!')
+            .setDescription('All automated structural economic loops are fully live!')
             .setColor('#FFD700')
             .addFields(
-                { name: '🪙 Portofel & Seif', value: '`$bal` | `$dep <sumă>` | `$with <sumă>` | `$loan <sumă>` | `$transfer` | `$prestige`' },
-                { name: '🕹️ Jocuri Vizuale', value: '`$slots <bet>` (Animație live)\n`$bj <bet>` (Butoane interactive)\n`$roulette <bet> <opțiune>` (Red/Black/Green/Număr)' },
-                { name: '👥 Multiplayer & Clane', value: '`$poker <buyin> @useri` (Evaluator Real)\n`$duel <@user> <bet>` | `$clan` | `$clanwar`' },
-                { name: '💼 Carieră & Simulare', value: '`$work <job>` | `$crime` | `$properties` | `$skill` | `$lootbox` | `$market` | `$missions` | `$weekly`' }
+                { name: '🪙 Wallet & Secure Vault', value: '`$bal` | `$dep <amount>` | `$with <amount>` | `$loan <amount>` | `$transfer` | `$prestige`' },
+                { name: '🕹️ Animated Casino Modules', value: '`$slots <bet>` (Visual Reels)\n``$bj <bet>` (Interactive UI Buttons)\n`$roulette <bet> <selection>` (Red/Black/Green/Number)' },
+                { name: '👥 Multiplayer & Syndicates', value: '`$poker <buyin> @users` (Real Odds Evaluator)\n`$duel <@user> <bet>` | `$clan` | `$clanwar`' },
+                { name: '💼 Career & Progression Simulation', value: '`$work` | `$crime` | `$properties` | `$skill` | `$lootbox` | `$market` | `$missions` | `$daily`' }
             );
         return message.channel.send({ embeds: [embed] });
     }
 
-    // --- BANCĂ & STATISTICI ---
+    // --- VAULT & BANK OPERATIONS ---
     if (command === 'dep' || command === 'deposit') {
         const user = getUserData(message.author.id);
         let amount = args[0] === 'all' ? user.balance : parseInt(args[0]);
-        if (isNaN(amount) || amount <= 0 || user.balance < amount) return message.channel.send("❌ Sumă invalidă sau fonduri insuficiente.");
+        if (isNaN(amount) || amount <= 0 || user.balance < amount) return message.channel.send("❌ Invalid deposit configuration or insufficient cash balance.");
         user.balance -= amount; user.bank += amount; updateUserData(message.author.id, user);
-        return message.channel.send(`🏦 Ai depus **${amount.toLocaleString()}** chips în contul tău.`);
+        return message.channel.send(`🏦 Vault Updated: Deposited **${amount.toLocaleString()}** chips securely.`);
     }
 
     if (command === 'with' || command === 'withdraw') {
         const user = getUserData(message.author.id);
         let amount = args[0] === 'all' ? user.bank : parseInt(args[0]);
-        if (isNaN(amount) || amount <= 0 || user.bank < amount) return message.channel.send("❌ Fonduri bancare insuficiente.");
+        if (isNaN(amount) || amount <= 0 || user.bank < amount) return message.channel.send("❌ Insufficient funds detected inside your bank vault.");
         user.bank -= amount; user.balance += amount; updateUserData(message.author.id, user);
-        return message.channel.send(`🏦 Ai retras **${amount.toLocaleString()}** chips.`);
+        return message.channel.send(`🏦 Vault Updated: Withdrew **${amount.toLocaleString()}** chips into liquid cash.`);
     }
 
     if (command === 'bal' || command === 'balance') {
         const target = message.mentions.members.first() || message.member;
         const user = getUserData(target.id);
         const embed = new EmbedBuilder()
-            .setTitle(`🪙 Portofelul lui ${target.displayName}`)
+            .setTitle(`🪙 Financial Ledger: ${target.displayName}`)
             .setColor('#DAA520')
             .addFields(
-                { name: 'Bani Cash', value: `🪙 **${user.balance.toLocaleString()}**`, inline: true },
-                { name: 'Bancă', value: `🏦 **${user.bank.toLocaleString()}**`, inline: true },
-                { name: 'Nivel', value: `⭐ **Lv. ${user.level}** (${user.xp} XP)`, inline: true }
+                { name: 'Liquid Cash', value: `🪙 **${user.balance.toLocaleString()}**`, inline: true },
+                { name: 'Vault Holdings', value: `🏦 **${user.bank.toLocaleString()}**`, inline: true },
+                { name: 'Account Tier', value: `⭐ **Lv. ${user.level}** (${user.xp} XP)`, inline: true }
             );
         return message.channel.send({ embeds: [embed] });
     }
 
-    // --- ANIMAȚIE PREMIUM: SLOTS ---
+    // --- SLOT MACHINE ANIMATED ENGINE ---
     if (command === 'slots') {
-        if (activeGames.has(message.author.id)) return message.channel.send("❌ Termină jocul curent mai întâi!");
+        if (activeGames.has(message.author.id)) return message.channel.send("❌ Please wait for your current slot simulation sequence to finish execution!");
         const bet = parseInt(args[0]);
-        if (isNaN(bet) || bet <= 0) return message.channel.send('❌ Utilizare: `$slots <sumă>`');
+        if (isNaN(bet) || bet <= 0) return message.channel.send('❌ Usage Parameter Error: `$slots <bet>`');
         
         const user = getUserData(message.author.id);
-        if (user.balance < bet) return message.channel.send("❌ Nivel de chips insuficient.");
+        if (user.balance < bet) return message.channel.send("❌ Request Terminated: Insufficient chips.");
 
         activeGames.add(message.author.id);
         globalJackpot += Math.ceil(bet * 0.05);
 
         const symbols = ['🍒', '🍋', '🍊', '🍇', '🔔', '💎', '7️⃣'];
         const embed = new EmbedBuilder().setTitle("🎰 SLOT MACHINE 🎰").setColor("#FFD700")
-            .setDescription("Rolele se învârt...").addFields({ name: "Ecran", value: "🎰 **[ 🔄 | 🔄 | 🔄 ]**" });
+            .setDescription("The slot reels are spinning...").addFields({ name: "Screen Display", value: "🎰 **[ 🔄 | 🔄 | 🔄 ]**" });
 
         const spinMessage = await message.channel.send({ embeds: [embed] });
 
         await new Promise(r => setTimeout(r, 900));
-        embed.setFields({ name: "Ecran", value: "🎰 **[ 🍒 | 🍇 | 🔄 ]**" });
+        embed.setFields({ name: "Screen Display", value: "🎰 **[ 🍒 | 🍇 | 🔄 ]**" });
         await spinMessage.edit({ embeds: [embed] });
 
         await new Promise(r => setTimeout(r, 900));
@@ -326,42 +326,42 @@ client.on('messageCreate', async (message) => {
         if (r1 === r2 && r2 === r3) {
             winAmount = r1 === '💎' ? (bet * 10 + globalJackpot) : (bet * 5);
             winAmount = Math.round(winAmount * getEventMultiplier());
-            desc = `🎉 **JACKPOT TRIPLUL!** Ai câștigat **${winAmount.toLocaleString()}** chips!`;
+            desc = `🎉 **TRIPLE JACKPOT HIT!** You hit matching lines and won **${winAmount.toLocaleString()}** chips!`;
             if (r1 === '💎') globalJackpot = 50000;
         } else if (r1 === r2 || r2 === r3 || r1 === r3) {
             winAmount = Math.round(bet * 1.5 * getEventMultiplier());
-            desc = `💵 Dublă găsită! Ai câștigat **${winAmount.toLocaleString()}** chips.`;
+            desc = `💵 Double match detected! Payout tier hit: **${winAmount.toLocaleString()}** chips.`;
         } else {
-            desc = `😭 Nicio potrivire. Ai pierdut **${bet.toLocaleString()}** chips.`;
+            desc = `😭 No matches landed on the paylines. Lost **${bet.toLocaleString()}** chips.`;
         }
 
         user.balance = user.balance - bet + winAmount;
         user.missions.slotsSpun += 1;
         updateUserData(message.author.id, user);
 
-        embed.setFields({ name: "Rezultat Final", value: `🎰 **[ ${r1} | ${r2} | ${r3} ]**` }).setDescription(desc);
+        embed.setFields({ name: "Final Outcome", value: `🎰 **[ ${r1} | ${r2} | ${r3} ]**` }).setDescription(desc);
         await spinMessage.edit({ embeds: [embed] });
         activeGames.delete(message.author.id);
     }
 
-    // --- ANIMAȚIE PREMIUM: ROULETTE ---
+    // --- ROULETTE REEL GRAPHICS ---
     if (command === 'roulette') {
         const bet = parseInt(args[0]);
         const selection = args[1]?.toLowerCase();
-        if (isNaN(bet) || bet <= 0 || !selection) return message.channel.send("❌ Utilizare: `$roulette <bet> <color/number>`");
+        if (isNaN(bet) || bet <= 0 || !selection) return message.channel.send("❌ Configuration Error: Use `$roulette <bet> <color/number>`");
 
         const user = getUserData(message.author.id);
-        if (user.balance < bet) return message.channel.send("❌ Nu ai destui chips.");
-        if (activeGames.has(message.author.id)) return message.channel.send("❌ Ai deja un joc în desfășurare.");
+        if (user.balance < bet) return message.channel.send("❌ Balance check failed: Insufficient chips.");
+        if (activeGames.has(message.author.id)) return message.channel.send("❌ Concurrency Check: Active betting engine running.");
 
         activeGames.add(message.author.id);
         const embed = new EmbedBuilder().setTitle("🎡 ROULETTE WHEEL 🎡").setColor("#006400")
-            .addFields({ name: "Roata se învârte...", value: "`[ 🔴 14 ] [ ⚫ 2 ] [ 🟢 0 ]`" });
+            .addFields({ name: "Wheel is dropping the ball...", value: "`[ 🔴 14 ] [ ⚫ 2 ] [ 🟢 0 ]`" });
 
         const msg = await message.channel.send({ embeds: [embed] });
 
         await new Promise(r => setTimeout(r, 1000));
-        embed.setFields({ name: "Bila încetinește...", value: "`[ ⚫ 35 ] [ 🔴 12 ] [ 🟢 0 ]`" });
+        embed.setFields({ name: "Ball friction slowing down...", value: "`[ ⚫ 35 ] [ 🔴 12 ] [ 🟢 0 ]`" });
         await msg.edit({ embeds: [embed] });
 
         const colors = { red: [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36], black: [2,4,6,8,10,11,13,15,17,20,22,24,26,28,29,31,33,35] };
@@ -375,22 +375,22 @@ client.on('messageCreate', async (message) => {
         user.balance = user.balance - bet + payout;
         updateUserData(message.author.id, user);
 
-        embed.setFields({ name: "Rezultat", value: `🌟 **[ ${winColor.toUpperCase()} ${winNum} ]** 🌟` })
-             .setDescription(won ? `🎉 Ai câștigat **${payout.toLocaleString()}** chips!` : `😭 Ai pierdut **${bet}** chips.`)
+        embed.setFields({ name: "Winning Drop Pocket", value: `🌟 **[ ${winColor.toUpperCase()} ${winNum} ]** 🌟` })
+             .setDescription(won ? `🎉 Successful Wager! You won **${payout.toLocaleString()}** chips!` : `😭 Wager Failed. You lost **${bet}** chips.`)
              .setColor(won ? "#228B22" : "#B22222");
         
         await msg.edit({ embeds: [embed] });
         activeGames.delete(message.author.id);
     }
 
-    // --- BLACKJACK INTRACTIV (BUTOANE) ---
+    // --- INTERACTIVE BLACKJACK (UI BUTTON ENGINES) ---
     if (command === 'bj' || command === 'blackjack') {
-        if (activeGames.has(message.author.id)) return message.channel.send("❌ Termină jocul curent mai întâi!");
+        if (activeGames.has(message.author.id)) return message.channel.send("❌ Active match state detected. Clear your active table session first!");
         const bet = parseInt(args[0]);
-        if (isNaN(bet) || bet <= 0) return message.channel.send('❌ Utilizare: `$bj <sumă>`');
+        if (isNaN(bet) || bet <= 0) return message.channel.send('❌ Usage Parameter Error: `$bj <bet>`');
 
         const user = getUserData(message.author.id);
-        if (user.balance < bet) return message.channel.send("❌ Fonduri insuficiente.");
+        if (user.balance < bet) return message.channel.send("❌ Insufficient chips to match initial table entry bet.");
 
         activeGames.add(message.author.id);
         let pHand = [Math.floor(Math.random() * 10) + 2, Math.floor(Math.random() * 10) + 2];
@@ -399,13 +399,13 @@ client.on('messageCreate', async (message) => {
         const score = (h) => h.reduce((a,b) => a+b, 0);
         const genEmbed = (reveal = false) => new EmbedBuilder().setTitle("🃏 BLACKJACK TABLE 🃏").setColor("#2F4F4F")
             .addFields(
-                { name: `Mâna Ta (Scor: ${score(pHand)})`, value: `[ ${pHand.join(', ')} ]`, inline: true },
-                { name: `Dealer (Scor: ${reveal ? score(dHand) : '?'})`, value: `[ ${reveal ? dHand.join(', ') : `${dHand[0]}, ?`} ]`, inline: true }
+                { name: `Your Cards (Score: ${score(pHand)})`, value: `[ ${pHand.join(', ')} ]`, inline: true },
+                { name: `Dealer Upcard (Score: ${reveal ? score(dHand) : '?'})`, value: `[ ${reveal ? dHand.join(', ') : `${dHand[0]}, ?`} ]`, inline: true }
             );
 
         const row = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId('hit').setLabel('🃏 Hit').setStyle(ButtonStyle.Primary),
-            new ButtonBuilder().setCustomId('stand').setLabel('🛑 Stand').setStyle(ButtonStyle.Secondary)
+            new ButtonBuilder().setCustomId('hit').setLabel('🃏 Hit Card').setStyle(ButtonStyle.Primary),
+            new ButtonBuilder().setCustomId('stand').setLabel('🛑 Stand State').setStyle(ButtonStyle.Secondary)
         );
 
         const bjMsg = await message.channel.send({ embeds: [genEmbed()], components: [row] });
@@ -426,10 +426,10 @@ client.on('messageCreate', async (message) => {
             if (pS <= 21) { while (dS < 17) { dHand.push(Math.floor(Math.random() * 10) + 2); dS = score(dHand); } }
 
             let fin = 0; let msgStr = "";
-            if (pS > 21 || reason === 'busted') { fin = -bet; msgStr = "💥 Ai dat BUST! Ai pierdut."; }
-            else if (dS > 21 || pS > dS) { fin = Math.round(bet * getEventMultiplier()); msgStr = "🎉 Ai câștigat!"; }
-            else if (pS < dS) { fin = -bet; msgStr = "😭 Dealerul a câștigat."; }
-            else msgStr = "🤝 Egalitate (Push).";
+            if (pS > 21 || reason === 'busted') { fin = -bet; msgStr = "💥 Hand Busted! You crossed maximum count values. Lost."; }
+            else if (dS > 21 || pS > dS) { fin = Math.round(bet * getEventMultiplier()); msgStr = "🎉 Win Valuation Verified! Chips transferred to wallet."; }
+            else if (pS < dS) { fin = -bet; msgStr = "😭 House beats player score threshold. Lost."; }
+            else msgStr = "🤝 Split Push state. Chips returned out of pot.";
 
             user.balance += fin; updateUserData(message.author.id, user);
             await bjMsg.edit({ embeds: [genEmbed(true).setDescription(msgStr)], components: [] });
@@ -437,14 +437,14 @@ client.on('messageCreate', async (message) => {
         });
     }
 
-    // --- MOTOR POKER REAL ---
+    // --- TEXAS HOLD'EM POKER MATH ALGORITHM ---
     if (command === 'poker') {
         const buyIn = parseInt(args[0]); const targets = message.mentions.users;
-        if (isNaN(buyIn) || buyIn <= 0 || targets.size === 0) return message.channel.send("❌ Utilizare: `$poker <buyin> @player1 ...`");
+        if (isNaN(buyIn) || buyIn <= 0 || targets.size === 0) return message.channel.send("❌ Syntax Error: Use `$poker <buyin> @player1 ...`");
 
         const list = [message.author, ...targets.values()];
         for (const p of list) {
-            if (getUserData(p.id).balance < buyIn) return message.channel.send(`❌ ${p.username} nu are suficienți chips.`);
+            if (getUserData(p.id).balance < buyIn) return message.channel.send(`❌ Entry Refused: ${p.username} does not hold enough tournament chips.`);
         }
 
         const deck = [];
@@ -459,44 +459,54 @@ client.on('messageCreate', async (message) => {
         });
 
         const winData = getUserData(winner.id); winData.balance += (buyIn * list.length); updateUserData(winner.id, winData);
-        return message.channel.send(`🏆 **Poker Texas Hold'em!**\nCommunity Cards: ${comm.join(' ')}\n👑 Câștigător: **${winner.username}** cu **${best.name}**! A luat tot potul!`);
+        return message.channel.send(`🏆 **Texas Hold'em Table Resolved!**\nCommunity Board Cards: ${comm.join(' ')}\n👑 Winner: **${winner.username}** claiming pot with a **${best.name}**!`);
     }
 
-    // --- COINFLIP DUEL ---
+    // --- MULTIPLAYER COINFLIP DUELS ---
     if (command === 'duel') {
         const opp = message.mentions.users.first(); const bet = parseInt(args[1]);
-        if (!opp || isNaN(bet) || bet <= 0 || opp.id === message.author.id) return message.channel.send("❌ Utilizare: `$duel @user <bet>`");
+        if (!opp || isNaN(bet) || bet <= 0 || opp.id === message.author.id) return message.channel.send("❌ Configuration Error: Use `$duel @user <bet>`");
 
         const u1 = getUserData(message.author.id); const u2 = getUserData(opp.id);
-        if (u1.balance < bet || u2.balance < bet) return message.channel.send("❌ Unul dintre jucători nu are destui bani.");
+        if (u1.balance < bet || u2.balance < bet) return message.channel.send("❌ Match Cancelled: One of the requested challengers lacks matching capital.");
 
         const win = Math.random() < 0.5 ? message.author : opp;
         const los = win.id === message.author.id ? opp : message.author;
 
         updateBalance(win.id, bet); updateBalance(los.id, -bet);
-        return message.channel.send(`🎲 Duelul s-a încheiat! **${win.username}** a câștigat **${bet}** chips de la **${los.username}**!`);
+        return message.channel.send(`🎲 Duel Finished! **${win.username}** wins the 1v1 coinflip showdown and secures **${bet}** chips from **${los.username}**!`);
     }
 
-    // --- CARIERĂ & PASIV ---
+    // --- SIMULATED ACTIVE CAREERS ---
     if (command === 'work') {
         const user = getUserData(message.author.id);
         const cooldown = getCooldownString(user.lastWork, 30 * 60 * 1000);
-        if (cooldown) return message.channel.send(`⏳ Ești obosit. Poți lucra din nou peste: **${cooldown}**.`);
+        if (cooldown) return message.channel.send(`⏳ Fatigue Limit Hit. Shift cooldown expires in: **${cooldown}**.`);
 
         const pay = Math.round((Math.floor(Math.random() * 1500) + 500) * getEventMultiplier());
         user.balance += pay; user.lastWork = new Date().toISOString();
         updateUserData(message.author.id, user); addXP(message.author.id, 200, message.channel);
-        return message.channel.send(`💼 Ai terminat tura și ai primit **+${pay}** chips.`);
+        return message.channel.send(`💼 Shift Finished! You processed your shift duties and earned **+${pay}** chips.`);
     }
 
     if (command === 'daily') {
         const user = getUserData(message.author.id);
         const cd = getCooldownString(user.lastDaily, 24 * 60 * 60 * 1000);
-        if (cd) return message.channel.send(`❌ Ai luat deja recompensa. Revino peste: **${cd}**.`);
+        if (cd) return message.channel.send(`❌ Allowance Blocked. Next structural daily bonus allowance available in: **${cd}**.`);
         
         user.balance += 2000; user.lastDaily = new Date().toISOString(); updateUserData(message.author.id, user);
-        return message.channel.send("🎁 Ai primit **+2,000** chips zilnici!");
+        return message.channel.send("🎁 Daily allowance credited successfully! Added **+2,000** chips to wallet.");
     }
 });
 
+// --- SAFE INTEGRATION TO RECOVER FROM MISSING EMIT CONSTANTS V14/V15 ---
 client.login(process.env.DISCORD_TOKEN);
+
+// --- AUTOMATED PRODUCTION CRASH PREVENTION ENGINE ---
+process.on('unhandledRejection', error => {
+    console.error(' [Crash Preventive Log - Unhandled Rejection Caught]:', error);
+});
+
+process.on('uncaughtException', error => {
+    console.error(' [Crash Preventive Log - Uncaught Exception Caught]:', error);
+});
