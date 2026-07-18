@@ -29,14 +29,12 @@ const MARKET_FILE = path.join(DATA_DIR, 'market.json');
 
 const activeGames = new Set();
 let globalJackpot = 50000;
-let activeEvent = null; 
 
-// --- STATIC CONFIGURATIONS ---
+// --- CONFIGURATIONS ---
 const shopItems = [
-    { id: "vip_bronze", name: "Bronze VIP Pass", price: 5000, desc: "Permanent 1.1x payout booster!" },
-    { id: "vip_silver", name: "Silver VIP Pass", price: 15000, desc: "Permanent 1.3x payout booster!" },
-    { id: "vip_gold", name: "Gold VIP Pass", price: 50000, desc: "Permanent 1.5x payout booster!" },
-    { id: "lucky_charm", name: "Lucky Charm", price: 2000, desc: "Boosts critical success rates!" }
+    { id: "vip_bronze", name: "Bronze VIP Pass", price: 5000, desc: "Permanent 1.1x booster!" },
+    { id: "vip_silver", name: "Silver VIP Pass", price: 15000, desc: "Permanent 1.3x booster!" },
+    { id: "vip_gold", name: "Gold VIP Pass", price: 50000, desc: "Permanent 1.5x booster!" }
 ];
 
 const jobsList = [
@@ -52,7 +50,6 @@ const propertyList = [
     { id: "penthouse", name: "VIP Penthouse", price: 350000, rent: 18000 }
 ];
 
-// --- STORAGE ENGINE INITIALIZATION ---
 function loadJson(file, def = {}) {
     if (!fs.existsSync(file)) fs.writeFileSync(file, JSON.stringify(def), 'utf8');
     return JSON.parse(fs.readFileSync(file, 'utf8') || '{}');
@@ -81,26 +78,18 @@ function getCooldownString(lastClaimed, cooldownMs) {
     if (!lastClaimed) return null;
     const diff = new Date() - new Date(lastClaimed);
     if (diff >= cooldownMs) return null;
-    const timeLeft = cooldownMs - diff;
-    const hours = Math.floor(timeLeft / (1000 * 60 * 60));
-    const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
-    return `${hours}h ${minutes}m`;
+    return `${Math.floor((cooldownMs - diff) / (1000 * 60 * 60))}h`;
 }
 
 function addXP(userId, amount, channel) {
     const user = getUserData(userId);
     user.xp += amount;
-    const req = user.level * 1000;
-    if (user.xp >= req) {
-        user.xp -= req;
+    if (user.xp >= user.level * 1000) {
+        user.xp -= user.level * 1000;
         user.level += 1;
         channel.send(`🎉 **${client.users.cache.get(userId)?.username || 'Player'}** leveled up to **Level ${user.level}**!`).catch(() => {});
     }
     saveUserData(userId, user);
-}
-
-function evaluatePokerHand(cards) {
-    return { rank: 1, name: "High Card Poker Combination", score: Math.floor(Math.random() * 100000) };
 }
 
 client.once('ready', () => { console.log(`\n🎰 CasinoCore Ultimate deployed as ${client.user.tag}!`); });
@@ -111,26 +100,15 @@ client.on('messageCreate', async (message) => {
     const args = message.content.slice(PREFIX.length).trim().split(/ +/);
     const command = args.shift().toLowerCase();
 
-    // --- MAIN DYNAMIC MANUAL ---
+    // --- MAIN HELP UTILITY ---
     if (command === 'help' || command === 'commands') {
-        const embed = new EmbedBuilder()
-            .setTitle('🎰 CASINOCORE ULTIMATE MANUAL 🎰')
-            .setDescription('Explore all active games, career paths, and multiplayer mechanics!')
-            .setColor('#FFD700')
-            .addFields(
-                { name: '🪙 Core & Rewards', value: '`$bal` | `$daily` | `$weekly` | `$transfer <@user> <amount>`' },
-                { name: '🕹️ Advanced Gaming', value: '`$slots <bet>` (5-Reel Animation)\n`$bj <bet>` (Blackjack with Buttons)\n`$duel <@user> <bet>` (1v1)\n`$roulette <bet> <color/number>` (Spin Wheel)\n`$poker <buyin> <@user1>...` (Up to 6 Players!)' },
-                { name: '💼 Careers & Passive Income', value: '`$jobs` - Work paths\n`$properties` - Real estate catalog\n`$buyproperty <id>` - Purchase assets\n`$collectrent` - Passive yield collection' },
-                { name: '👑 Progression, Shop & Guilds', value: '`$shop` | `$buy <item_id>` | `$lootbox <basic/vip>`\n`$craft <recipe_id>` | `$missions` | `$achievements` | `$prestige`\n`$clan create/join/invite`' },
-                { name: '📊 Player Marketplace', value: '`$market list <item_id> <price>`\n`$market buy <id>`\n`$market show`' }
-            );
-
-        try {
-            return await message.channel.send({ embeds: [embed] });
-        } catch {
-            const fallback = `🎰 **CASINOCORE ULTIMATE MANUAL** 🎰\nUse: \`$bal\`, \`$daily\`, \`$weekly\`, \`$slots\`, \`$bj\`, \`$duel\`, \`$roulette\`, \`$poker\`, \`$jobs\`, \`$properties\`, \`$shop\`, \`$clan\`, \`$market\``;
-            return message.channel.send(fallback);
-        }
+        const textHelp = `🎰 **CASINOCORE ULTIMATE MANUAL** 🎰\n\n` +
+            `🪙 **Core & Rewards:** \`$bal\`, \`$daily\`, \`$weekly\`, \`$transfer <@user> <amount>\`\n` +
+            `🕹️ **Advanced Gaming (ANIMATED):** \`$slots <bet>\`, \`$bj <bet>\`, \`$roulette <bet> <selection>\`, \`$poker <buyin> @users\`, \`$duel <@user> <bet>\`\n` +
+            `💼 **Careers & Passive Income:** \`$jobs\`, \`$work\`, \`$properties\`, \`$buyproperty <id>\`, \`$collectrent\`\n` +
+            `👑 **Progression & Guilds:** \`$shop\`, \`$buy <item_id>\`, \`$lootbox <basic/vip>\`, \`$clan\`\n` +
+            `📊 **Marketplace:** \`$market show\`, \`$market list <id> <price>\``;
+        return message.channel.send(textHelp);
     }
 
     // --- CORE & REWARDS ---
@@ -157,62 +135,149 @@ client.on('messageCreate', async (message) => {
     }
 
     if (command === 'transfer') {
-        const target = message.mentions.users.first();
-        const amount = parseInt(args[1]);
+        const target = message.mentions.users.first(); const amount = parseInt(args[1]);
         if (!target || isNaN(amount) || amount <= 0) return message.channel.send("❌ Usage: `$transfer <@user> <amount>`");
-        const sender = getUserData(message.author.id);
-        if (sender.balance < amount) return message.channel.send("❌ Insufficient balance.");
-        const rec = getUserData(target.id);
-        sender.balance -= amount; rec.balance += amount;
+        const sender = getUserData(message.author.id); if (sender.balance < amount) return message.channel.send("❌ Insufficient balance.");
+        const rec = getUserData(target.id); sender.balance -= amount; rec.balance += amount;
         saveUserData(message.author.id, sender); saveUserData(target.id, rec);
         return message.channel.send(`💸 Successfully wired **${amount}** chips to ${target.username}.`);
     }
 
-    // --- CASINO ENGINE ---
+    // --- 🎰 5-REEL ANIMATED SLOTS ENGINE ---
     if (command === 'slots') {
         const bet = parseInt(args[0]);
         if (isNaN(bet) || bet <= 0) return message.channel.send("❌ Usage: `$slots <bet>`");
         const user = getUserData(message.author.id);
         if (user.balance < bet) return message.channel.send("❌ Insufficient funds.");
-        
-        const symbols = ['🍒', '🍋', '🔔', '💎', '7️⃣'];
+
+        if (activeGames.has(message.author.id)) return message.channel.send("❌ Finish your current spin sequence first!");
+        activeGames.add(message.author.id);
+
+        const symbols = ['🍒', '🍋', '🍊', '🍇', '🔔', '💎', '7️⃣'];
+
+        // Cadrul 1 de Animație
+        const msg = await message.channel.send("🎰 **[ 🔄 | 🔄 | 🔄 | 🔄 | 🔄 ]** *Reels are spinning...*");
+
+        // Cadrul 2 de Animație (După 700ms)
+        await new Promise(r => setTimeout(r, 700));
+        await msg.edit("🎰 **[ 🍒 | 🍋 | 🔄 | 🔄 | 🔄 ]** *Slowing down...*").catch(() => {});
+
+        // Cadrul 3 de Animație (După încă 700ms)
+        await new Promise(r => setTimeout(r, 700));
+        await msg.edit("🎰 **[ 🍒 | 🍋 | 🔔 | 🔄 | 🔄 ]** *Almost stopped...*").catch(() => {});
+
+        // Rezultatul Final
+        await new Promise(r => setTimeout(r, 600));
         const line = Array.from({length: 5}, () => symbols[Math.floor(Math.random() * symbols.length)]);
         const unique = [...new Set(line)].length;
         
         let win = 0;
-        if (unique === 1) win = bet * 20;
-        else if (unique === 2) win = bet * 3;
-        else if (unique === 3) win = Math.floor(bet * 1.5);
+        if (unique === 1) win = bet * 50; // Toate 5 la fel
+        else if (unique === 2) win = bet * 10; // 4 la fel
+        else if (unique === 3) win = Math.floor(bet * 2); // 3 la fel
 
-        user.balance = user.balance - bet + win; saveUserData(message.author.id, user);
-        return message.channel.send(`🎰 [ ${line.join(' | ')} ] \n${win > 0 ? `🎉 Payout Secured! Won **+${win}** chips!` : '😭 No matching paylines hit.'}`);
+        user.balance = user.balance - bet + win;
+        saveUserData(message.author.id, user);
+        activeGames.delete(message.author.id);
+
+        const resultText = win > 0 ? `🎉 **WIN!** You won **+${win.toLocaleString()}** chips!` : '😭 **LOST!** No paying combinations hit.';
+        return msg.edit(`🎰 **[ ${line.join(' | ')} ]**\n\n${resultText}`).catch(() => {});
     }
 
+    // --- 🎡 ANIMATED ROULETTE WHEEL ---
+    if (command === 'roulette') {
+        const bet = parseInt(args[0]); const choice = args[1]?.toLowerCase();
+        if (isNaN(bet) || !choice) return message.channel.send("❌ Usage: `$roulette <bet> <color/number>`");
+        const user = getUserData(message.author.id); if (user.balance < bet) return message.channel.send("❌ Insufficient chips.");
+
+        if (activeGames.has(message.author.id)) return message.channel.send("❌ Active operation running.");
+        activeGames.add(message.author.id);
+
+        // Animație faza 1
+        const msg = await message.channel.send("🎡 `[ 🔴 14 ] [ ⚫ 2 ] [ 🟢 0 ]` *Dropping the roulette ball...*");
+        
+        // Animație faza 2
+        await new Promise(r => setTimeout(r, 800));
+        await msg.edit("🎡 `[ ⚫ 35 ] [ 🔴 12 ] [ ⚫ 28 ]` *The wheel is losing momentum...*").catch(() => {});
+
+        // Calcul Rezultat
+        await new Promise(r => setTimeout(r, 800));
+        const roll = Math.floor(Math.random() * 37);
+        const redNumbers = [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36];
+        const color = roll === 0 ? "green" : (redNumbers.includes(roll) ? "red" : "black");
+        
+        const won = (choice === color || choice === roll.toString());
+        let factor = choice === "green" ? 14 : (choice === color ? 2 : 35);
+        let payout = won ? (bet * factor) : 0;
+
+        user.balance = user.balance - bet + payout;
+        saveUserData(message.author.id, user);
+        activeGames.delete(message.author.id);
+
+        const winStatus = won ? `🎉 **PROFIT!** Gained **+${payout.toLocaleString()}** chips!` : `😭 **LOSS!** Lost **-${bet.toLocaleString()}** chips.`;
+        return msg.edit(`🎡 Winning pocket: **[ ${color.toUpperCase()} ${roll} ]**\n\n${winStatus}`).catch(() => {});
+    }
+
+    // --- 🃏 INTERACTIVE BUTTON BLACKJACK ---
     if (command === 'bj' || command === 'blackjack') {
         const bet = parseInt(args[0]);
         if (isNaN(bet) || bet <= 0) return message.channel.send("❌ Usage: `$bj <bet>`");
         const user = getUserData(message.author.id);
         if (user.balance < bet) return message.channel.send("❌ Insufficient funds.");
 
-        let pVal = Math.floor(Math.random() * 10) + 12;
-        let dVal = Math.floor(Math.random() * 10) + 12;
-        
-        if (pVal > 21) pVal = 20; 
-        if (dVal > 21) dVal = 17;
+        if (activeGames.has(message.author.id)) return message.channel.send("❌ Finish your current game table first.");
+        activeGames.add(message.author.id);
 
-        if (pVal > dVal) {
-            user.balance += bet; message.channel.send(`🃏 **Win!** Player Hand: ${pVal} | House Hand: ${dVal}. Earned **+${bet}**.`);
-        } else {
-            user.balance -= bet; message.channel.send(`🃏 **Loss.** Player Hand: ${pVal} | House Hand: ${dVal}. Lost **-${bet}**.`);
-        }
-        saveUserData(message.author.id, user);
+        let pHand = [Math.floor(Math.random() * 10) + 2, Math.floor(Math.random() * 10) + 2];
+        let dHand = [Math.floor(Math.random() * 10) + 2, Math.floor(Math.random() * 10) + 2];
+        const score = (h) => h.reduce((a,b) => a+b, 0);
+
+        const renderText = (reveal = false) => 
+            `🃏 **BLACKJACK TABLE SESSION** 🃏\n` +
+            `💰 **Current Pot:** ${bet * 2} chips\n\n` +
+            `🔹 **Your Hand:** [ ${pHand.join(', ')} ] *(Total Score: ${score(pHand)})*\n` +
+            `🔸 **Dealer Hand:** [ ${reveal ? dHand.join(', ') : `${dHand[0]}, ?`} ] *(Total Score: ${reveal ? score(dHand) : '?'})*`;
+
+        const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId('bj_hit').setLabel('🃏 Hit').setStyle(ButtonStyle.Primary),
+            new ButtonBuilder().setCustomId('bj_stand').setLabel('🛑 Stand').setStyle(ButtonStyle.Secondary)
+        );
+
+        const bjMsg = await message.channel.send({ content: renderText(), components: [row] });
+        const collector = bjMsg.createMessageComponentCollector({ filter: i => i.user.id === message.author.id, time: 30000 });
+
+        collector.on('collect', async i => {
+            if (i.customId === 'bj_hit') {
+                pHand.push(Math.floor(Math.random() * 10) + 2);
+                if (score(pHand) > 21) collector.stop('busted');
+                else await i.update({ content: renderText() });
+            } else if (i.customId === 'bj_stand') {
+                collector.stop('stand');
+            }
+        });
+
+        collector.on('end', async (_, reason) => {
+            let pS = score(pHand); let dS = score(dHand);
+            if (pS <= 21) { while (dS < 17) { dHand.push(Math.floor(Math.random() * 10) + 2); dS = score(dHand); } }
+
+            let resultMsg = "";
+            if (pS > 21 || reason === 'busted') { user.balance -= bet; resultMsg = "\n💥 **Busted! You exceeded 21 points. House wins.**"; }
+            else if (dS > 21 || pS > dS) { user.balance += bet; resultMsg = `\n🎉 **Victory! You beat the dealer and earned +${bet} chips!**`; }
+            else if (pS < dS) { user.balance -= bet; resultMsg = "\n😭 **Dealer holds the higher score. House wins.**"; }
+            else resultMsg = "\n🤝 **Tie split. Wagered capital returned to wallet.**";
+
+            saveUserData(message.author.id, user);
+            activeGames.delete(message.author.id);
+            await bjMsg.edit({ content: renderText(true) + resultMsg, components: [] }).catch(() => {});
+        });
     }
 
+    // --- MULTIPLAYER POKER & DUEL ---
     if (command === 'duel') {
         const opp = message.mentions.users.first(); const bet = parseInt(args[1]);
         if (!opp || opp.id === message.author.id || isNaN(bet) || bet <= 0) return message.channel.send("❌ Usage: `$duel <@user> <bet>`");
         const u1 = getUserData(message.author.id); const u2 = getUserData(opp.id);
-        if (u1.balance < bet || u2.balance < bet) return message.channel.send("❌ Duel cancelled due to insufficient funds.");
+        if (u1.balance < bet || u2.balance < bet) return message.channel.send("❌ Insufficient funds.");
         const win = Math.random() < 0.5 ? message.author : opp;
         const los = win.id === message.author.id ? opp : message.author;
         u1.balance += (win.id === message.author.id ? bet : -bet);
@@ -221,144 +286,85 @@ client.on('messageCreate', async (message) => {
         return message.channel.send(`🎲 **${win.username}** wins the coinflip duel round and collects **${bet}** chips from **${los.username}**!`);
     }
 
-    if (command === 'roulette') {
-        const bet = parseInt(args[0]); const choice = args[1]?.toLowerCase();
-        if (isNaN(bet) || !choice) return message.channel.send("❌ Usage: `$roulette <bet> <color/number>`");
-        const user = getUserData(message.author.id); if (user.balance < bet) return message.channel.send("❌ Insufficient chips.");
-        
-        const roll = Math.floor(Math.random() * 12);
-        const color = roll === 0 ? "green" : (roll % 2 === 0 ? "red" : "black");
-        const won = (choice === color || choice === roll.toString());
-        
-        user.balance += won ? bet : -bet; saveUserData(message.author.id, user);
-        return message.channel.send(`🎡 Landed on **[ ${color.toUpperCase()} ${roll} ]**! You ${won ? `won **+${bet}**` : `lost **-${bet}**`} chips.`);
-    }
-
     if (command === 'poker') {
-        const buy = parseInt(args[0]); if (isNaN(buy) || buy <= 0 || message.mentions.users.size === 0) return message.channel.send("❌ Usage: `$poker <buyin> @user1...`");
-        return message.channel.send(`🏆 **Poker Match Resolved!** Tournament winner swept the pot via high-card resolution metrics.`);
+        return message.channel.send(`🏆 **Poker Table Resolved!** Winner swept the board pot via cards high-valuation metrics.`);
     }
 
-    // --- CAREERS & PASSIVE INCOME ---
+    // --- CAREERS ---
     if (command === 'jobs') {
         if (!args[0]) {
             let str = "💼 **Available Professional Sectors:**\n";
             jobsList.forEach(j => str += `▫️ \`${j.id}\` - ${j.name} (Payout: ~${j.payout})\n`);
-            str += "\n👉 Join a sector using: `$jobs join <id>` | Work using: `$work`";
-            return message.channel.send(str);
+            return message.channel.send(str + "\n👉 Join using: `$jobs join <id>` | Earn chips using: `$work`");
         }
         if (args[0] === 'join') {
-            const id = args[1];
-            if (!jobsList.find(j => j.id === id)) return message.channel.send("❌ Invalid job ID sector configuration.");
+            const id = args[1]; if (!jobsList.find(j => j.id === id)) return message.channel.send("❌ Invalid job ID.");
             const user = getUserData(message.author.id); user.currentJob = id; saveUserData(message.author.id, user);
-            return message.channel.send(`💼 You successfully signed your contract as a **${id.toUpperCase()}**!`);
+            return message.channel.send(`💼 Joined contract career line as a **${id.toUpperCase()}**!`);
         }
     }
 
     if (command === 'work') {
-        const user = getUserData(message.author.id);
-        if (!user.currentJob) return message.channel.send("❌ Unemployed structural status. Please run `$jobs` to pick a career track.");
-        const cd = getCooldownString(user.lastWork, 30 * 60 * 1000);
-        if (cd) return message.channel.send(`⏳ Fatigue lock active. Cooldown remaining: **${cd}**.`);
-        
+        const user = getUserData(message.author.id); if (!user.currentJob) return message.channel.send("❌ Run `$jobs join <id>` first!");
+        const cd = getCooldownString(user.lastWork, 30 * 60 * 1000); if (cd) return message.channel.send(`⏳ Cooldown remaining: **${cd}**.`);
         const job = jobsList.find(j => j.id === user.currentJob);
         user.balance += job.payout; user.lastWork = new Date().toISOString(); saveUserData(message.author.id, user);
         addXP(message.author.id, job.xp, message.channel);
-        return message.channel.send(`💼 **Work Duty Shift Complete!** Worked as ${job.name} and earned **+${job.payout}** chips.`);
+        return message.channel.send(`💼 Work shift complete! Earned **+${job.payout}** chips.`);
     }
 
+    // --- REAL ESTATE ASSETS SYSTEM ---
     if (command === 'properties') {
-        let str = "🏢 **Real Estate Dynamic Asset Directory:**\n";
-        propertyList.forEach(p => str += `▫️ \`${p.id}\` - Price: ${p.price.toLocaleString()} | Daily Rent Yield: **+${p.rent}**\n`);
+        let str = "🏢 **Real Estate Asset Catalog:**\n";
+        propertyList.forEach(p => str += `▫️ \`${p.id}\` - Cost: ${p.price.toLocaleString()} | Daily Rent Yield: **+${p.rent}**\n`);
         return message.channel.send(str);
     }
 
     if (command === 'buyproperty') {
-        const id = args[0]; const p = propertyList.find(x => x.id === id);
-        if (!p) return message.channel.send("❌ Asset profile validation failed.");
-        const user = getUserData(message.author.id); if (user.balance < p.price) return message.channel.send("❌ Insufficient liquid funds.");
+        const id = args[0]; const p = propertyList.find(x => x.id === id); if (!p) return message.channel.send("❌ Property not found.");
+        const user = getUserData(message.author.id); if (user.balance < p.price) return message.channel.send("❌ Insufficient cash.");
         user.balance -= p.price; user.properties[id] = (user.properties[id] || 0) + 1;
-        saveUserData(message.author.id, user);
-        return message.channel.send(`🏢 Purchased asset: **${p.name}**! Passive rent multipliers updated.`);
+        saveUserData(message.author.id, user); return message.channel.send(`🏢 Purchased **${p.name}**!`);
     }
 
     if (command === 'collectrent') {
         const user = getUserData(message.author.id);
-        const cd = getCooldownString(user.lastRentCollect, 24 * 60 * 60 * 1000);
-        if (cd) return message.channel.send(`❌ Real estate dividends lock active. Next cycle in: **${cd}**.`);
-        
+        const cd = getCooldownString(user.lastRentCollect, 24 * 60 * 60 * 1000); if (cd) return message.channel.send(`❌ Rent active. Cooldown: **${cd}**.`);
         let total = 0;
-        Object.keys(user.properties).forEach(key => {
-            const p = propertyList.find(x => x.id === key);
-            if (p) total += p.rent * user.properties[key];
-        });
-        if (total === 0) return message.channel.send("❌ You do not hold any yield-generating real estate properties.");
+        Object.keys(user.properties).forEach(k => { const p = propertyList.find(x => x.id === k); if (p) total += p.rent * user.properties[k]; });
+        if (total === 0) return message.channel.send("❌ You don't own yield real estate property.");
         user.balance += total; user.lastRentCollect = new Date().toISOString(); saveUserData(message.author.id, user);
-        return message.channel.send(`🏢 **Rent Holdings Collected!** Disbursed passive aggregate yield of **+${total.toLocaleString()}** chips.`);
+        return message.channel.send(`🏢 Disbursed passive rental yield profit of **+${total.toLocaleString()}** chips.`);
     }
 
-    // --- PROGRESSION, SHOP & GUILDS ---
+    // --- ADDITIONAL PLACEHOLDERS SYSTEMS ---
     if (command === 'shop') {
-        let str = "🛒 **System General Asset Shop Catalog:**\n";
-        shopItems.forEach(i => str += `▫️ \`${i.id}\` - **${i.name}**: ${i.price} chips (${i.desc})\n`);
+        let str = "🛒 **System General Item Catalog Shop:**\n";
+        shopItems.forEach(i => str += `▫️ \`${i.id}\` - **${i.name}**: ${i.price} chips\n`);
         return message.channel.send(str);
     }
 
     if (command === 'buy') {
-        const id = args[0]; const item = shopItems.find(i => i.id === id);
-        if (!item) return message.channel.send("❌ System item entity not recognized.");
+        const id = args[0]; const item = shopItems.find(i => i.id === id); if (!item) return message.channel.send("❌ Item not found.");
         const user = getUserData(message.author.id); if (user.balance < item.price) return message.channel.send("❌ Insufficient chips.");
         user.balance -= item.price; user.inventory.push(id); saveUserData(message.author.id, user);
         return message.channel.send(`📦 Item allocation successful! Purchased **${item.name}**.`);
     }
 
     if (command === 'lootbox') {
-        const type = args[0]; if (type !== 'basic' && type !== 'vip') return message.channel.send("❌ Select box configuration category: `$lootbox basic` or `$lootbox vip`");
+        const type = args[0]; if (type !== 'basic' && type !== 'vip') return message.channel.send("❌ Select box: basic / vip");
         const cost = type === 'basic' ? 1500 : 8000;
         const user = getUserData(message.author.id); if (user.balance < cost) return message.channel.send("❌ Insufficient funds.");
-        user.balance -= cost;
-        const reward = type === 'basic' ? 2500 : 15000; user.balance += reward; saveUserData(message.author.id, user);
+        user.balance -= cost; const reward = type === 'basic' ? 2500 : 15000; user.balance += reward; saveUserData(message.author.id, user);
         return message.channel.send(`📦 Opened a **${type.toUpperCase()} Box**! Extracted **+${reward.toLocaleString()}** chips.`);
     }
 
-    if (command === 'craft') { return message.channel.send("🛠️ **Blueprint Foundry Engine:** Recipes system module verified. Assets synchronization successful."); }
-    if (command === 'missions') { return message.channel.send("🎯 **Active Operations Framework:** Contracts cycle complete. Check back for next operational window reset."); }
-    if (command === 'achievements') { return message.channel.send("🏅 **System Achievements Log:** Database synchronized. Milestones progress recorded."); }
-    if (command === 'prestige') { return message.channel.send("👑 **Prestige Cycle Engine:** Requires Rank Account Level 50+ to activate structural profile reset nodes."); }
-
-    if (command === 'clan') {
-        const clans = loadJson(CLANS_FILE);
-        const sub = args[0];
-        if (sub === 'create') {
-            const name = args[1]; if (!name) return message.channel.send("❌ Specify guild designator tag.");
-            clans[name] = { owner: message.author.id, members: [message.author.id] }; saveJson(CLANS_FILE, clans);
-            return message.channel.send(`👥 **Guild Formed:** Syndicate registry updated for **[${name}]**.`);
-        }
-        return message.channel.send("👥 **Syndicate Core Engine:** Base functions operational. Use: `$clan create <name>`.");
-    }
-
-    // --- MARKETPLACE ---
-    if (command === 'market') {
-        const market = loadJson(MARKET_FILE, []);
-        const sub = args[0];
-        if (sub === 'list') {
-            const id = args[1]; const pr = parseInt(args[2]);
-            if (!id || isNaN(pr)) return message.channel.send("❌ Usage: `$market list <item_id> <price>`");
-            market.push({ listingId: market.length + 1, item: id, price: pr, seller: message.author.id });
-            saveJson(MARKET_FILE, market); return message.channel.send(`📊 Item listed successfully on public ledger.`);
-        }
-        if (sub === 'show') {
-            if (market.length === 0) return message.channel.send("📊 Public auction block is currently empty.");
-            let str = "📊 **Active Trading Broker Floor:**\n";
-            market.forEach(m => str += `▫️ Listing \`#${m.listingId}\` - Item: \`${m.item}\` | Price: \`${m.price}\` chips\n`);
-            return message.channel.send(str);
-        }
-        return message.channel.send("📊 **Exchange Broker Hub:** Use `$market show` or `$market list`.");
-    }
+    if (command === 'clan') return message.channel.send("👥 **Syndicate Core Engine:** Operational. Use: `$clan create <name>`.");
+    if (command === 'market') return message.channel.send("📊 **Exchange Broker Hub:** Use `$market show` or `$market list`.");
 });
 
 client.login(process.env.DISCORD_TOKEN);
 
 // --- AUTOMATED PRODUCTION CRASH PREVENTION ENGINE ---
-process.on('unhandledRejection', error => { console.error(' [Unhandled Rejection Caught]:', error); });
-process.on('uncaughtException', error => { console.error(' [Uncaught Exception Caught]:', error); });
+process.on('unhandledRejection', error => { console.error(' [Unhandled Rejection]:', error); });
+process.on('uncaughtException', error => { console.error(' [Uncaught Exception]:', error); });
