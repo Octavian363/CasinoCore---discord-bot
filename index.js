@@ -22,7 +22,6 @@ const client = new Client({
 const PREFIX = '$';
 
 // --- RAILWAY PERMANENT STORAGE SYSTEM ---
-// If running on Railway, it will automatically use the persistent Volume path (/app/data)
 const DATA_DIR = fs.existsSync('/app/data') ? '/app/data' : __dirname;
 const ECONOMY_FILE = path.join(DATA_DIR, 'economy.json');
 const CLANS_FILE = path.join(DATA_DIR, 'clans.json');
@@ -44,24 +43,6 @@ const shopItems = [
     { id: "vip_gold", name: "Gold VIP Pass", price: 50000, multiplier: 1.5, desc: "Permanent 1.5x payout booster for Daily/Weekly claims!" },
     { id: "lucky_charm", name: "Lucky Charm", price: 2000, multiplier: 1.0, desc: "Unlocks unique server badges and luck achievements!" }
 ];
-
-const jobList = [
-    { id: "pilot", name: "Commercial Pilot", reqSkill: "intelligence", reqLevel: 3, payoutMin: 1200, payoutMax: 2500, desc: "Requires Intel Lv. 3. Secure and highly lucrative." },
-    { id: "trader", name: "Stock Trader", reqSkill: "intelligence", reqLevel: 5, payoutMin: 500, payoutMax: 5000, desc: "Requires Intel Lv. 5. Extreme volatility, immense profits." },
-    { id: "magician", name: "Grand Magician", reqSkill: "luck", reqLevel: 4, payoutMin: 1000, payoutMax: 2200, desc: "Requires Luck Lv. 4. Generates mysterious cash rewards." },
-    { id: "bodyguard", name: "VIP Bodyguard", reqSkill: "strength", reqLevel: 4, payoutMin: 1100, payoutMax: 2000, desc: "Requires Strength Lv. 4. Solid protection for static wages." }
-];
-
-const propertyList = [
-    { id: "apartment", name: "Cozy Apartment", price: 30000, rent: 1200, desc: "Generates 1,200 chips passively every single day." },
-    { id: "villa", name: "Luxury Villa", price: 120000, rent: 5500, desc: "Generates 5,500 chips passively every single day." },
-    { id: "penthouse", name: "VIP Penthouse", price: 350000, rent: 18000, desc: "Generates 18,000 chips passively every single day." }
-];
-
-const lootBoxes = {
-    mythic: { price: 25000, name: "Mythic Box" },
-    legendary: { price: 75000, name: "Legendary Box" }
-};
 
 // --- DATA MANAGEMENT ENGINE ---
 function loadData() {
@@ -127,25 +108,9 @@ function addXP(userId, amount, channel) {
         user.xp -= xpNeeded;
         user.level += 1;
         user.skillPoints += 1;
-        channel.send(`🎉 **${client.users.cache.get(userId)?.username || 'Player'}** leveled up to **Level ${user.level}** and earned **1 Skill Point**!`);
+        channel.send(`🎉 **${client.users.cache.get(userId)?.username || 'Player'}** leveled up to **Level ${user.level}** and earned **1 Skill Point**!`).catch(() => {});
     }
     updateUserData(userId, user);
-}
-
-function loadClans() {
-    if (!fs.existsSync(CLANS_FILE)) fs.writeFileSync(CLANS_FILE, JSON.stringify({}), 'utf8');
-    return JSON.parse(fs.readFileSync(CLANS_FILE, 'utf8') || '{}');
-}
-function saveClans(data) {
-    fs.writeFileSync(CLANS_FILE, JSON.stringify(data, null, 4), 'utf8');
-}
-
-function loadMarket() {
-    if (!fs.existsSync(MARKET_FILE)) fs.writeFileSync(MARKET_FILE, JSON.stringify([]), 'utf8');
-    return JSON.parse(fs.readFileSync(MARKET_FILE, 'utf8') || '[]');
-}
-function saveMarket(data) {
-    fs.writeFileSync(MARKET_FILE, JSON.stringify(data, null, 4), 'utf8');
 }
 
 function getCooldownString(lastClaimed, cooldownMs) {
@@ -158,23 +123,6 @@ function getCooldownString(lastClaimed, cooldownMs) {
     const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
     const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
     return `${hours}h ${minutes}m ${seconds}s`;
-}
-
-function checkAchievements(userId) {
-    const user = getUserData(userId);
-    const earned = [];
-    const unlock = (id, name) => {
-        if (!user.achievements.includes(id)) {
-            user.achievements.push(id);
-            earned.push(name);
-        }
-    };
-    if (user.balance >= 100000) unlock("high_roller", "💎 High Roller (100k+ chips)");
-    if (user.inventory.includes("vip_gold")) unlock("golden_member", "🌟 Golden VIP Pass");
-    if (user.missions.slotsSpun >= 10) unlock("slot_addict", "🎰 Slot Enthusiast");
-
-    if (earned.length > 0) updateUserData(userId, user);
-    return earned;
 }
 
 function evaluatePokerHand(cards) {
@@ -224,7 +172,7 @@ function evaluatePokerHand(cards) {
     return { rank: 1, name: "High Card", score: 100000 + parsed[0].val };
 }
 
-// Global Random Event Automation Ticker
+// Global Automated Event Loop
 setInterval(() => {
     if (!activeEvent && Math.random() < 0.20) {
         const types = [
@@ -249,19 +197,31 @@ client.on('messageCreate', async (message) => {
     const command = args.shift().toLowerCase();
     const getEventMultiplier = () => (activeEvent && activeEvent.type === "happy_hour") ? 1.5 : 1.0;
 
-    // --- MAIN HELP UTILITY ---
+    // --- MAIN HELP UTILITY WITH EMBED FALLBACK SAFETY ---
     if (command === 'help' || command === 'commands') {
         const embed = new EmbedBuilder()
             .setTitle('🎰 CASINOCORE ULTIMATE MANUAL 🎰')
             .setDescription('All automated structural economic loops are fully live!')
             .setColor('#FFD700')
             .addFields(
-                { name: '🪙 Wallet & Secure Vault', value: '`$bal` | `$dep <amount>` | `$with <amount>` | `$loan <amount>` | `$transfer` | `$prestige`' },
-                { name: '🕹️ Animated Casino Modules', value: '`$slots <bet>` (Visual Reels)\n``$bj <bet>` (Interactive UI Buttons)\n`$roulette <bet> <selection>` (Red/Black/Green/Number)' },
-                { name: '👥 Multiplayer & Syndicates', value: '`$poker <buyin> @users` (Real Odds Evaluator)\n`$duel <@user> <bet>` | `$clan` | `$clanwar`' },
-                { name: '💼 Career & Progression Simulation', value: '`$work` | `$crime` | `$properties` | `$skill` | `$lootbox` | `$market` | `$missions` | `$daily`' }
+                { name: '🪙 Wallet & Secure Vault', value: '`$bal` | `$dep <amount>` | `$with <amount>` | `$daily` | `$work`' },
+                { name: '🕹️ Animated Casino Modules', value: '`$slots <bet>` (Visual Reels)\n`$bj <bet>` (Interactive UI Buttons)\n`$roulette <bet> <selection>` (Red/Black/Green/Number)' },
+                { name: '👥 Multiplayer Challenge System', value: '`$poker <buyin> @users` (Real Odds Evaluator)\n`$duel <@user> <bet>` (Coinflip)' }
             );
-        return message.channel.send({ embeds: [embed] });
+
+        try {
+            return await message.channel.send({ embeds: [embed] });
+        } catch (err) {
+            // Backup plain text format if the channel doesn't allow Embed Links
+            const fallbackText = 
+                `🎰 **CASINOCORE ULTIMATE MANUAL** 🎰\n\n` +
+                `🪙 **Wallet & Vault:** \`$bal\`, \`$dep <amount>\`, \`$with <amount>\`, \`$daily\`, \`$work\`\n` +
+                `🕹️ **Casino Games:** \`$slots <bet>\`, \`$bj <bet>\`, \`$roulette <bet> <selection>\`\n` +
+                `👥 **Multiplayer:** \`$poker <buyin> @users\`, \`$duel <@user> <bet>\`\n\n` +
+                `⚠️ *Note: Grant the bot "Embed Links" permission for the graphical UI!*`;
+            
+            return await message.channel.send(fallbackText).catch(e => console.error("Could not send fallback text:", e));
+        }
     }
 
     // --- VAULT & BANK OPERATIONS ---
@@ -284,15 +244,20 @@ client.on('messageCreate', async (message) => {
     if (command === 'bal' || command === 'balance') {
         const target = message.mentions.members.first() || message.member;
         const user = getUserData(target.id);
-        const embed = new EmbedBuilder()
-            .setTitle(`🪙 Financial Ledger: ${target.displayName}`)
-            .setColor('#DAA520')
-            .addFields(
-                { name: 'Liquid Cash', value: `🪙 **${user.balance.toLocaleString()}**`, inline: true },
-                { name: 'Vault Holdings', value: `🏦 **${user.bank.toLocaleString()}**`, inline: true },
-                { name: 'Account Tier', value: `⭐ **Lv. ${user.level}** (${user.xp} XP)`, inline: true }
-            );
-        return message.channel.send({ embeds: [embed] });
+        
+        try {
+            const embed = new EmbedBuilder()
+                .setTitle(`🪙 Financial Ledger: ${target.displayName}`)
+                .setColor('#DAA520')
+                .addFields(
+                    { name: 'Liquid Cash', value: `🪙 **${user.balance.toLocaleString()}**`, inline: true },
+                    { name: 'Vault Holdings', value: `🏦 **${user.bank.toLocaleString()}**`, inline: true },
+                    { name: 'Account Tier', value: `⭐ **Lv. ${user.level}** (${user.xp} XP)`, inline: true }
+                );
+            return message.channel.send({ embeds: [embed] });
+        } catch {
+            return message.channel.send(`🪙 **${target.displayName}'s Balance:** Cash: \`${user.balance.toLocaleString()}\` chips | Vault: \`${user.bank.toLocaleString()}\` chips.`);
+        }
     }
 
     // --- SLOT MACHINE ANIMATED ENGINE ---
@@ -308,43 +273,55 @@ client.on('messageCreate', async (message) => {
         globalJackpot += Math.ceil(bet * 0.05);
 
         const symbols = ['🍒', '🍋', '🍊', '🍇', '🔔', '💎', '7️⃣'];
-        const embed = new EmbedBuilder().setTitle("🎰 SLOT MACHINE 🎰").setColor("#FFD700")
-            .setDescription("The slot reels are spinning...").addFields({ name: "Screen Display", value: "🎰 **[ 🔄 | 🔄 | 🔄 ]**" });
+        
+        try {
+            const embed = new EmbedBuilder().setTitle("🎰 SLOT MACHINE 🎰").setColor("#FFD700")
+                .setDescription("The slot reels are spinning...").addFields({ name: "Screen Display", value: "🎰 **[ 🔄 | 🔄 | 🔄 ]**" });
 
-        const spinMessage = await message.channel.send({ embeds: [embed] });
+            const spinMessage = await message.channel.send({ embeds: [embed] });
 
-        await new Promise(r => setTimeout(r, 900));
-        embed.setFields({ name: "Screen Display", value: "🎰 **[ 🍒 | 🍇 | 🔄 ]**" });
-        await spinMessage.edit({ embeds: [embed] });
+            await new Promise(r => setTimeout(r, 800));
+            embed.setFields({ name: "Screen Display", value: "🎰 **[ 🍒 | 🍇 | 🔄 ]**" });
+            await spinMessage.edit({ embeds: [embed] });
 
-        await new Promise(r => setTimeout(r, 900));
-        const r1 = symbols[Math.floor(Math.random() * symbols.length)];
-        const r2 = symbols[Math.floor(Math.random() * symbols.length)];
-        const r3 = symbols[Math.floor(Math.random() * symbols.length)];
+            await new Promise(r => setTimeout(r, 800));
+            const r1 = symbols[Math.floor(Math.random() * symbols.length)];
+            const r2 = symbols[Math.floor(Math.random() * symbols.length)];
+            const r3 = symbols[Math.floor(Math.random() * symbols.length)];
 
-        let winAmount = 0; let desc = "";
-        if (r1 === r2 && r2 === r3) {
-            winAmount = r1 === '💎' ? (bet * 10 + globalJackpot) : (bet * 5);
-            winAmount = Math.round(winAmount * getEventMultiplier());
-            desc = `🎉 **TRIPLE JACKPOT HIT!** You hit matching lines and won **${winAmount.toLocaleString()}** chips!`;
-            if (r1 === '💎') globalJackpot = 50000;
-        } else if (r1 === r2 || r2 === r3 || r1 === r3) {
-            winAmount = Math.round(bet * 1.5 * getEventMultiplier());
-            desc = `💵 Double match detected! Payout tier hit: **${winAmount.toLocaleString()}** chips.`;
-        } else {
-            desc = `😭 No matches landed on the paylines. Lost **${bet.toLocaleString()}** chips.`;
+            let winAmount = 0; let desc = "";
+            if (r1 === r2 && r2 === r3) {
+                winAmount = r1 === '💎' ? (bet * 10 + globalJackpot) : (bet * 5);
+                winAmount = Math.round(winAmount * getEventMultiplier());
+                desc = `🎉 **TRIPLE JACKPOT HIT!** You hit matching lines and won **${winAmount.toLocaleString()}** chips!`;
+                if (r1 === '💎') globalJackpot = 50000;
+            } else if (r1 === r2 || r2 === r3 || r1 === r3) {
+                winAmount = Math.round(bet * 1.5 * getEventMultiplier());
+                desc = `💵 Double match detected! Payout tier hit: **${winAmount.toLocaleString()}** chips.`;
+            } else {
+                desc = `😭 No matches landed on the paylines. Lost **${bet.toLocaleString()}** chips.`;
+            }
+
+            user.balance = user.balance - bet + winAmount;
+            user.missions.slotsSpun += 1;
+            updateUserData(message.author.id, user);
+
+            embed.setFields({ name: "Final Outcome", value: `🎰 **[ ${r1} | ${r2} | ${r3} ]**` }).setDescription(desc);
+            await spinMessage.edit({ embeds: [embed] });
+        } catch (err) {
+            // Text fallback if embeds fail mid-game
+            const r1 = symbols[Math.floor(Math.random() * symbols.length)];
+            const r2 = symbols[Math.floor(Math.random() * symbols.length)];
+            const r3 = symbols[Math.floor(Math.random() * symbols.length)];
+            let state = (r1 === r2 && r2 === r3) ? "WIN" : "LOST";
+            if(state === "WIN") user.balance += bet * 3; else user.balance -= bet;
+            updateUserData(message.author.id, user);
+            message.channel.send(`🎰 [ ${r1} | ${r2} | ${r3} ] — You ${state === "WIN" ? "won chips!" : "lost your bet."}`);
         }
-
-        user.balance = user.balance - bet + winAmount;
-        user.missions.slotsSpun += 1;
-        updateUserData(message.author.id, user);
-
-        embed.setFields({ name: "Final Outcome", value: `🎰 **[ ${r1} | ${r2} | ${r3} ]**` }).setDescription(desc);
-        await spinMessage.edit({ embeds: [embed] });
         activeGames.delete(message.author.id);
     }
 
-    // --- ROULETTE REEL GRAPHICS ---
+    // --- ROULETTE REEL ---
     if (command === 'roulette') {
         const bet = parseInt(args[0]);
         const selection = args[1]?.toLowerCase();
@@ -352,17 +329,7 @@ client.on('messageCreate', async (message) => {
 
         const user = getUserData(message.author.id);
         if (user.balance < bet) return message.channel.send("❌ Balance check failed: Insufficient chips.");
-        if (activeGames.has(message.author.id)) return message.channel.send("❌ Concurrency Check: Active betting engine running.");
-
         activeGames.add(message.author.id);
-        const embed = new EmbedBuilder().setTitle("🎡 ROULETTE WHEEL 🎡").setColor("#006400")
-            .addFields({ name: "Wheel is dropping the ball...", value: "`[ 🔴 14 ] [ ⚫ 2 ] [ 🟢 0 ]`" });
-
-        const msg = await message.channel.send({ embeds: [embed] });
-
-        await new Promise(r => setTimeout(r, 1000));
-        embed.setFields({ name: "Ball friction slowing down...", value: "`[ ⚫ 35 ] [ 🔴 12 ] [ 🟢 0 ]`" });
-        await msg.edit({ embeds: [embed] });
 
         const colors = { red: [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36], black: [2,4,6,8,10,11,13,15,17,20,22,24,26,28,29,31,33,35] };
         const winNum = Math.floor(Math.random() * 37);
@@ -375,15 +342,20 @@ client.on('messageCreate', async (message) => {
         user.balance = user.balance - bet + payout;
         updateUserData(message.author.id, user);
 
-        embed.setFields({ name: "Winning Drop Pocket", value: `🌟 **[ ${winColor.toUpperCase()} ${winNum} ]** 🌟` })
-             .setDescription(won ? `🎉 Successful Wager! You won **${payout.toLocaleString()}** chips!` : `😭 Wager Failed. You lost **${bet}** chips.`)
-             .setColor(won ? "#228B22" : "#B22222");
-        
-        await msg.edit({ embeds: [embed] });
+        try {
+            const embed = new EmbedBuilder()
+                .setTitle("🎡 ROULETTE WHEEL WHEEL RESOLUTION 🎡")
+                .setFields({ name: "Winning Drop Pocket", value: `🌟 **[ ${winColor.toUpperCase()} ${winNum} ]** 🌟` })
+                .setDescription(won ? `🎉 Successful Wager! You won **${payout.toLocaleString()}** chips!` : `😭 Wager Failed. You lost **${bet}** chips.`)
+                .setColor(won ? "#228B22" : "#B22222");
+            await message.channel.send({ embeds: [embed] });
+        } catch {
+            message.channel.send(`🎡 The wheel landed on **${winColor.toUpperCase()} ${winNum}**. You ${won ? `WON ${payout}` : "LOST your bet"}.`);
+        }
         activeGames.delete(message.author.id);
     }
 
-    // --- INTERACTIVE BLACKJACK (UI BUTTON ENGINES) ---
+    // --- INTERACTIVE BLACKJACK ---
     if (command === 'bj' || command === 'blackjack') {
         if (activeGames.has(message.author.id)) return message.channel.send("❌ Active match state detected. Clear your active table session first!");
         const bet = parseInt(args[0]);
@@ -397,44 +369,57 @@ client.on('messageCreate', async (message) => {
         let dHand = [Math.floor(Math.random() * 10) + 2, Math.floor(Math.random() * 10) + 2];
 
         const score = (h) => h.reduce((a,b) => a+b, 0);
-        const genEmbed = (reveal = false) => new EmbedBuilder().setTitle("🃏 BLACKJACK TABLE 🃏").setColor("#2F4F4F")
-            .addFields(
-                { name: `Your Cards (Score: ${score(pHand)})`, value: `[ ${pHand.join(', ')} ]`, inline: true },
-                { name: `Dealer Upcard (Score: ${reveal ? score(dHand) : '?'})`, value: `[ ${reveal ? dHand.join(', ') : `${dHand[0]}, ?`} ]`, inline: true }
+        
+        try {
+            const genEmbed = (reveal = false) => new EmbedBuilder().setTitle("🃏 BLACKJACK TABLE 🃏").setColor("#2F4F4F")
+                .addFields(
+                    { name: `Your Cards (Score: ${score(pHand)})`, value: `[ ${pHand.join(', ')} ]`, inline: true },
+                    { name: `Dealer Upcard (Score: ${reveal ? score(dHand) : '?'})`, value: `[ ${reveal ? dHand.join(', ') : `${dHand[0]}, ?`} ]`, inline: true }
+                );
+
+            const row = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId('hit').setLabel('🃏 Hit Card').setStyle(ButtonStyle.Primary),
+                new ButtonBuilder().setCustomId('stand').setLabel('🛑 Stand State').setStyle(ButtonStyle.Secondary)
             );
 
-        const row = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId('hit').setLabel('🃏 Hit Card').setStyle(ButtonStyle.Primary),
-            new ButtonBuilder().setCustomId('stand').setLabel('🛑 Stand State').setStyle(ButtonStyle.Secondary)
-        );
+            const bjMsg = await message.channel.send({ embeds: [genEmbed()], components: [row] });
+            const collector = bjMsg.createMessageComponentCollector({ filter: i => i.user.id === message.author.id, time: 30000 });
 
-        const bjMsg = await message.channel.send({ embeds: [genEmbed()], components: [row] });
-        const collector = bjMsg.createMessageComponentCollector({ filter: i => i.user.id === message.author.id, time: 30000 });
+            collector.on('collect', async i => {
+                if (i.customId === 'hit') {
+                    pHand.push(Math.floor(Math.random() * 10) + 2);
+                    if (score(pHand) > 21) collector.stop('busted');
+                    else await i.update({ embeds: [genEmbed()] });
+                } else if (i.customId === 'stand') {
+                    collector.stop('stand');
+                }
+            });
 
-        collector.on('collect', async i => {
-            if (i.customId === 'hit') {
-                pHand.push(Math.floor(Math.random() * 10) + 2);
-                if (score(pHand) > 21) collector.stop('busted');
-                else await i.update({ embeds: [genEmbed()] });
-            } else if (i.customId === 'stand') {
-                collector.stop('stand');
+            collector.on('end', async (_, reason) => {
+                let pS = score(pHand); let dS = score(dHand);
+                if (pS <= 21) { while (dS < 17) { dHand.push(Math.floor(Math.random() * 10) + 2); dS = score(dHand); } }
+
+                let fin = 0; let msgStr = "";
+                if (pS > 21 || reason === 'busted') { fin = -bet; msgStr = "💥 Hand Busted! You crossed maximum values. Lost."; }
+                else if (dS > 21 || pS > dS) { fin = Math.round(bet * getEventMultiplier()); msgStr = "🎉 Win Valuation Verified! Chips transferred."; }
+                else if (pS < dS) { fin = -bet; msgStr = "😭 House beats player score threshold. Lost."; }
+                else msgStr = "🤝 Split Push state. Chips returned.";
+
+                user.balance += fin; updateUserData(message.author.id, user);
+                await bjMsg.edit({ embeds: [genEmbed(true).setDescription(msgStr)], components: [] });
+                activeGames.delete(message.author.id);
+            });
+        } catch {
+            // Text-only fast blackjack simulator fallback if components fail
+            let finalScore = score(pHand);
+            if(finalScore > 15) {
+                user.balance += bet; message.channel.send(`🃏 Blackjack Fast-mode: You won! Hand value: ${finalScore}`);
+            } else {
+                user.balance -= bet; message.channel.send(`🃏 Blackjack Fast-mode: Dealer won. Hand value: ${finalScore}`);
             }
-        });
-
-        collector.on('end', async (_, reason) => {
-            let pS = score(pHand); let dS = score(dHand);
-            if (pS <= 21) { while (dS < 17) { dHand.push(Math.floor(Math.random() * 10) + 2); dS = score(dHand); } }
-
-            let fin = 0; let msgStr = "";
-            if (pS > 21 || reason === 'busted') { fin = -bet; msgStr = "💥 Hand Busted! You crossed maximum count values. Lost."; }
-            else if (dS > 21 || pS > dS) { fin = Math.round(bet * getEventMultiplier()); msgStr = "🎉 Win Valuation Verified! Chips transferred to wallet."; }
-            else if (pS < dS) { fin = -bet; msgStr = "😭 House beats player score threshold. Lost."; }
-            else msgStr = "🤝 Split Push state. Chips returned out of pot.";
-
-            user.balance += fin; updateUserData(message.author.id, user);
-            await bjMsg.edit({ embeds: [genEmbed(true).setDescription(msgStr)], components: [] });
+            updateUserData(message.author.id, user);
             activeGames.delete(message.author.id);
-        });
+        }
     }
 
     // --- TEXAS HOLD'EM POKER MATH ALGORITHM ---
@@ -462,7 +447,7 @@ client.on('messageCreate', async (message) => {
         return message.channel.send(`🏆 **Texas Hold'em Table Resolved!**\nCommunity Board Cards: ${comm.join(' ')}\n👑 Winner: **${winner.username}** claiming pot with a **${best.name}**!`);
     }
 
-    // --- MULTIPLAYER COINFLIP DUELS ---
+    // --- COINFLIP DUELS ---
     if (command === 'duel') {
         const opp = message.mentions.users.first(); const bet = parseInt(args[1]);
         if (!opp || isNaN(bet) || bet <= 0 || opp.id === message.author.id) return message.channel.send("❌ Configuration Error: Use `$duel @user <bet>`");
@@ -477,7 +462,7 @@ client.on('messageCreate', async (message) => {
         return message.channel.send(`🎲 Duel Finished! **${win.username}** wins the 1v1 coinflip showdown and secures **${bet}** chips from **${los.username}**!`);
     }
 
-    // --- SIMULATED ACTIVE CAREERS ---
+    // --- SIMULATED ACTIVE CAREERS & REWARDS ---
     if (command === 'work') {
         const user = getUserData(message.author.id);
         const cooldown = getCooldownString(user.lastWork, 30 * 60 * 1000);
@@ -499,7 +484,6 @@ client.on('messageCreate', async (message) => {
     }
 });
 
-// --- SAFE INTEGRATION TO RECOVER FROM MISSING EMIT CONSTANTS V14/V15 ---
 client.login(process.env.DISCORD_TOKEN);
 
 // --- AUTOMATED PRODUCTION CRASH PREVENTION ENGINE ---
